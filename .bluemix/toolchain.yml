@@ -13,9 +13,9 @@ template:
     - sample-repo
   info:
     git url: >-
-      [https://git.ng.bluemix.net/jorge.iglesias/template-toolchains-maven/](https://git.ng.bluemix.net/jorge.iglesias/template-toolchains-maven/)
+      [https://github.com/carmengcm/template-toolchains-maven/](https://github.com/carmengcm/template-toolchains-maven/)
     git branch: >-
-      [master](https://git.ng.bluemix.net/jorge.iglesias/template-toolchains-maven/tree/master)
+      [master](https://github.com/carmengcm/template-toolchains-maven/tree/master)
 toolchain:
   name: 'simple-toolchain-{{timestamp}}'
   template:
