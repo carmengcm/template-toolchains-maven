@@ -10,7 +10,7 @@ stages:
   triggers:
   - type: commit
   jobs:
-  - name: Build
+  - name: Build jeje
     type: builder
     deploy_permission: DEV_IN_SPACE
     extension_id: ibm.devops.services.pipeline.maven.build.deploy
