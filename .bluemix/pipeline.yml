@@ -4,7 +4,6 @@ stages:
   inputs:
     type: git
     branch: develop
-    dir_name: null
     service: ${SAMPLE_REPO}
   triggers:
   - type: commit
@@ -42,7 +41,6 @@ stages:
   - type: job
     stage: CI-BUILD
     job: Build
-    dir_name: null
   triggers:
   - type: stage
   properties:
