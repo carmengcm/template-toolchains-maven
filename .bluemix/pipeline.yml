@@ -2,7 +2,7 @@
 stages:
 - name: CI-BUILD
   inputs:
-    type: git
+  - type: git
     branch: develop
     service: ${SAMPLE_REPO}
   triggers:
