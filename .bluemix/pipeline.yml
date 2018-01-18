@@ -6,6 +6,7 @@ stages:
     type: git
     branch: develop
     dir_name: null
+    service: ${SAMPLE_REPO}
   triggers:
   - type: commit
   jobs:
