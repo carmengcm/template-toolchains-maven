@@ -2,7 +2,8 @@
 stages:
 - name: CI-BUILD
   inputs:
-  - type: git
+  - url: https://github.ibm.com/Cesar-Rodriguez-Medina/gs-rest-service.git
+    type: git
     branch: develop
     dir_name: null
     service: ${SAMPLE_REPO}
@@ -85,3 +86,141 @@ stages:
     target:
       region_id: ibm:yp:eu-de
       api_key_id: ApiKey-9521f136-f8fe-4002-81f1-c22ca4626ff8
+  - name: Test - Image Vulnerability
+    type: tester
+    script: |-
+      #!/bin/bash
+      PIPELINE_IMAGE_URL=$REGISTRY_URL/$REGISTRY_NAMESPACE/$IMAGE_NAME:$BUILD_NUMBER #<<<<<<< COMING FROM WHERE????????
+      echo -e "Checking vulnerabilities in image: ${PIPELINE_IMAGE_URL}"
+      for ITERATION in {1..30}
+      do
+        set +e
+        OUTPUT=$( bx cr va ${PIPELINE_IMAGE_URL} )
+        set -e
+        if ! [[ ${OUTPUT} == *No\ vulnerability\ scan* || ${OUTPUT} == *not\ yet\ completed* ]]; then
+          break
+        fi
+        echo -e "${ITERATION} : A vulnerability report was not found for the specified image."
+        echo "Either the image doesn't exist or the scan hasn't completed yet. "
+        echo "Waiting for scan to complete.."
+        sleep 10
+      done
+      set +e
+      bx cr va ${PIPELINE_IMAGE_URL}
+      set -e
+      [[ $(bx cr va ${PIPELINE_IMAGE_URL}) == *SAFE\ to\ deploy* ]] || { echo "ERROR: The vulnerability scan was not successful, check the OUTPUT of the command and try again."; exit 1; }
+    test_type: vulnerabilityadvisor
+    namespace: sanalmccc
+    image_name: gs-rest-service
+    image_tag: latest
+    target:
+      region_id: ibm:yp:eu-de
+      api_key_id: ApiKey-9521f136-f8fe-4002-81f1-c22ca4626ff8
+  - name: Deploy
+    type: deployer
+    deploy_permission: DEV_IN_SPACE
+    target:
+      region_id: ibm:yp:eu-de
+      api_key_id: ApiKey-9521f136-f8fe-4002-81f1-c22ca4626ff8
+      kubernetes_cluster: Marta
+    script: |+
+      #!/bin/bash
+      set -x
+
+      # Use this script as a starting point to create your own deployment.yml
+
+      # Make sure the cluster is running and get the ip_address
+      ip_addr=$(bx cs workers $PIPELINE_KUBERNETES_CLUSTER_NAME | grep normal | awk '{ print $2 }')
+      if [ -z $ip_addr ]; then
+        echo "$PIPELINE_KUBERNETES_CLUSTER_NAME not created or workers not ready"
+        exit 1
+      fi
+
+      # Initialize script variables
+      NAME="$IDS_PROJECT_NAME"
+      IMAGE="$PIPELINE_IMAGE_URL"
+      #PORT=$(bx cr image-inspect $IMAGE --format "{{ .ContainerConfig.ExposedPorts }}" | sed -E 's/^[^0-9]*([0-9]+).*$/\1/')
+      #if [ -z "$PORT" ]; then
+      #    PORT=5000
+      #    echo "Port not found in Dockerfile, using $PORT"
+      #fi
+      PORT=8080
+      echo ""
+      echo "Deploy environment variables:"
+      echo "NAME=$NAME"
+      echo "IMAGE=$IMAGE"
+      echo "PORT=$PORT"
+      echo ""
+
+      DEPLOYMENT_FILE="deployment.yml"
+      echo "Creating deployment file $DEPLOYMENT_FILE"
+
+      # Build the deployment file
+      DEPLOYMENT=$(cat <<EOF''
+      apiVersion: extensions/v1beta1
+      kind: Deployment
+      metadata:
+        name: $NAME
+      spec:
+        replicas: 1
+        template:
+          metadata:
+            labels:
+              app: $NAME
+          spec:
+            containers:
+            - name: $NAME
+              image: $IMAGE
+              imagePullPolicy: IfNotPresent
+              ports:
+              - containerPort: $PORT
+      ---
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: $NAME
+        labels:
+          app: $NAME
+      spec:
+        type: NodePort
+        ports:
+          - port: $PORT
+        selector:
+          app: $NAME
+      EOF
+      )
+
+      # Substitute the variables
+      echo "$DEPLOYMENT" > $DEPLOYMENT_FILE
+      sed -i 's/$NAME/'"$NAME"'/g' $DEPLOYMENT_FILE
+      sed -i 's=$IMAGE='"$IMAGE"'=g' $DEPLOYMENT_FILE
+      sed -i 's/$PORT/'"$PORT"'/g' $DEPLOYMENT_FILE
+
+      # Show the file that is about to be executed
+      echo ""
+      echo "DEPLOYING USING MANIFEST:"
+      echo "cat $DEPLOYMENT_FILE"
+      cat $DEPLOYMENT_FILE
+      echo ""
+
+      # Execute the file
+      echo "KUBERNETES COMMAND:"
+      echo "kubectl apply -f $DEPLOYMENT_FILE"
+      kubectl apply -f $DEPLOYMENT_FILE
+      echo ""
+
+      echo ""
+      echo "DEPLOYED SERVICE:"
+      kubectl describe services $NAME
+      echo ""
+      echo "DEPLOYED PODS:"
+      kubectl describe pods --selector app=$NAME
+      echo ""
+
+      # Show the IP address and the PORT of the running app
+      port=$(kubectl get services | grep "$NAME " | sed 's/.*:\([0-9]*\).*/\1/g')
+      echo "RUNNING APPLICATION:"
+      echo "URL=http://$ip_addr"
+      echo "PORT=$port"
+      echo ""
+      echo "$NAME running at: http://$ip_addr:$port"
