@@ -2,7 +2,6 @@
 stages:
 - name: CI-BUILD
   inputs:
-  - url: https://github.ibm.com/Cesar-Rodriguez-Medina/gs-rest-service.git
     type: git
     branch: develop
     dir_name: null
