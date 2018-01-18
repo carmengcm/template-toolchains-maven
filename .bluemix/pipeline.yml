@@ -1,7 +1,6 @@
 - name: MakeRelease
   inputs:
-  - url: https://github.ibm.com/Cesar-Rodriguez-Medina/gs-rest-service.git
-    type: git
+  - type: git
     branch: master
     dir_name: null
     service: ${SAMPLE_REPO}
